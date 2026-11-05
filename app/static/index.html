@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Помощник HelpDesk Cloud</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header><div class="mark">H</div><div><h1>Помощник HelpDesk Cloud</h1><p>Ответы по базе знаний с указанием источников</p></div></header>
+    <details class="knowledge" id="knowledge">
+      <summary>База знаний и переиндексация</summary>
+      <p>Добавьте Markdown-файл в UTF-8. Файл с тем же именем будет заменён.</p>
+      <ul id="document-list" class="document-list"></ul>
+      <div class="knowledge-actions">
+        <label for="document-file">Выберите файл .md</label>
+        <input type="file" id="document-file" accept=".md,text/markdown,text/plain">
+        <button type="button" id="upload-document">Сохранить файл</button>
+        <button type="button" id="reindex">Обновить индекс</button>
+      </div>
+      <p id="knowledge-status" role="status" aria-live="polite">Загрузка состояния…</p>
+    </details>
+    <section id="messages" class="messages" aria-live="polite">
+      <article class="message assistant"><div class="bubble">Здравствуйте! Задайте вопрос о HelpDesk Cloud — я поищу ответ в документации.</div></article>
+    </section>
+    <form id="form"><label class="sr-only" for="question">Ваш вопрос</label><textarea id="question" rows="2" maxlength="2000" placeholder="Например: как восстановить пароль?" required></textarea><button id="send" type="submit" aria-label="Отправить вопрос">➤</button></form>
+    <p class="note">Ответы основаны на учебной базе документов.</p>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+data/index.faiss
+data/chunks.json
+
+data/index-*.faiss
+data/chunks-*.tmp
+
+# Personal JetBrains IDE state
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/shelf/
+.idea/httpRequests/
