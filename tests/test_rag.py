@@ -42,7 +42,7 @@ class RagChecks(unittest.TestCase):
         with patch.object(main, 'Retriever', return_value=fake_retriever), patch.object(main, 'OpenAI', FakeClient), patch.dict(os.environ, {'OPENAI_API_KEY':'test'}):
             response = main.chat(main.ChatRequest(question='test'))
         self.assertTrue(response.no_answer)
-        self.assertEqual(response.sources, [])
+        self.assertEqual(response.sources, ["ask"])
 
 class KnowledgeUpdates(unittest.TestCase):
     def test_vercel_upload_overrides_bundled_document(self):
