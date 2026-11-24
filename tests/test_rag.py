@@ -45,6 +45,20 @@ class RagChecks(unittest.TestCase):
         self.assertEqual(response.sources, [])
 
 class KnowledgeUpdates(unittest.TestCase):
+    def test_vercel_upload_overrides_bundled_document(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            kb = root / 'kb'; kb.mkdir()
+            uploads = root / 'uploads'
+            (kb / 'a.md').write_text('# Документ\n\nСтарое содержимое', encoding='utf8')
+            with patch.dict(os.environ, {'VERCEL': '1'}), patch.multiple(rag, KB_DIR=kb, UPLOAD_DIR=uploads):
+                result = main.upload_document(main.DocumentUpload(filename='a.md', content='# Документ\n\nНовое содержимое'))
+                self.assertTrue(result['replaced'])
+                self.assertEqual(rag.parse_documents()[0]['text'], 'Новое содержимое')
+                self.assertEqual(main.document('a.md').path, uploads / 'a.md')
+                self.assertIn('временный', result['message'])
+                self.assertIn('Старое содержимое', (kb / 'a.md').read_text(encoding='utf8'))
+
     def test_upload_replace_reindex_and_failure(self):
         temp_root = Path(__file__).resolve().parents[1] / ".tmp"
         temp_root.mkdir(exist_ok=True)
