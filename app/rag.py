@@ -16,15 +16,24 @@ from openai import OpenAI
 
 ROOT = Path(__file__).resolve().parents[1]
 KB_DIR = ROOT / "БЗ"
-DATA_DIR = ROOT / "data"
+UPLOAD_DIR = Path("/tmp/rag_6_pro/uploads") if os.getenv("VERCEL") else KB_DIR
+DATA_DIR = Path("/tmp/rag_6_pro/data") if os.getenv("VERCEL") else ROOT / "data"
 INDEX_PATH = DATA_DIR / "index.faiss"
 CHUNKS_PATH = DATA_DIR / "chunks.json"
 MAX_CHARS = 2400
 
 
+def document_paths() -> list[Path]:
+    """Overlay uploaded files over documents shipped with the deployment."""
+    paths = {p.name: p for p in KB_DIR.glob("*.md") if p.is_file() and not p.is_symlink()}
+    if os.getenv("VERCEL") and UPLOAD_DIR != KB_DIR:
+        paths.update({p.name: p for p in UPLOAD_DIR.glob("*.md") if p.is_file() and not p.is_symlink()})
+    return sorted(paths.values(), key=lambda p: p.name)
+
+
 def parse_documents() -> list[dict[str, str]]:
     chunks: list[dict[str, str]] = []
-    for path in sorted(KB_DIR.glob("*.md")):
+    for path in document_paths():
         text = path.read_text(encoding="utf-8-sig").replace("\r\n", "\n").strip()
         heading = path.stem
         section = ""

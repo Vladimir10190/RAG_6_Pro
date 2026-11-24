@@ -14,6 +14,7 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 
 from app.rag import Retriever, KB_DIR, build_index
+from app import rag
 
 load_dotenv()
 app = FastAPI(title="HelpDesk Cloud RAG", version="1.0.0")
@@ -55,7 +56,7 @@ def health():
 
 @app.get("/api/knowledge")
 def knowledge_status():
-    documents = [{"filename": p.name, "size": p.stat().st_size} for p in sorted(KB_DIR.glob("*.md")) if p.is_file() and not p.is_symlink()]
+    documents = [{"filename": p.name, "size": p.stat().st_size} for p in rag.document_paths() if p.is_file() and not p.is_symlink()]
     indexing = update_lock.locked()
     try:
         Retriever()
@@ -78,16 +79,20 @@ def upload_document(request: DocumentUpload):
         raise HTTPException(422, "Документ должен быть непустым и не больше 1 МБ в UTF-8.")
     if not update_lock.acquire(blocking=False):
         raise HTTPException(409, "Дождитесь завершения обновления базы знаний.")
-    temp = KB_DIR / f".upload-{uuid.uuid4().hex}.tmp"
+    upload_dir = rag.UPLOAD_DIR if os.getenv("VERCEL") else KB_DIR
+    temp = upload_dir / f".upload-{uuid.uuid4().hex}.tmp"
     try:
-        KB_DIR.mkdir(parents=True, exist_ok=True)
-        target = KB_DIR / name
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        target = upload_dir / name
         if target.is_symlink() or (target.exists() and not target.is_file()):
             raise HTTPException(422, "Недопустимый файл назначения.")
-        replaced = target.exists()
+        replaced = any(p.name == name for p in rag.document_paths())
         temp.write_text(request.content, encoding="utf-8")
         os.replace(temp, target)
-        return {"filename": name, "replaced": replaced, "message": "Документ сохранён. Запустите индексацию, чтобы использовать изменения."}
+        message = "Документ сохранён. Запустите индексацию, чтобы использовать изменения."
+        if os.getenv("VERCEL"):
+            message += " На Vercel файл временный и доступен только текущему экземпляру сервера."
+        return {"filename": name, "replaced": replaced, "message": message}
     finally:
         temp.unlink(missing_ok=True)
         update_lock.release()
@@ -113,8 +118,8 @@ def reindex():
 def document(filename: str):
     if Path(filename).name != filename or not filename.endswith(".md"):
         raise HTTPException(404, "Документ не найден")
-    path = KB_DIR / filename
-    if not path.is_file() or path.is_symlink():
+    path = next((p for p in rag.document_paths() if p.name == filename), None)
+    if path is None:
         raise HTTPException(404, "Документ не найден")
     return FileResponse(path, media_type="text/plain; charset=utf-8")
 
@@ -127,7 +132,19 @@ def chat(request: ChatRequest):
     if not os.getenv("OPENAI_API_KEY"):
         raise HTTPException(503, "Не настроен ключ OpenAI API. Добавьте OPENAI_API_KEY в файл .env.")
     try:
-        retriever = Retriever()
+        try:
+            retriever = Retriever()
+        except FileNotFoundError:
+            if not os.getenv("VERCEL"):
+                raise
+            # Each serverless instance has its own ephemeral /tmp directory.
+            with update_lock:
+                try:
+                    retriever = Retriever()
+                except FileNotFoundError:
+                    options = {"base_url": os.environ["OPENAI_BASE_URL"]} if os.getenv("OPENAI_BASE_URL") else {}
+                    build_index(OpenAI(**options))
+                    retriever = Retriever()
         options = {"base_url": os.environ["OPENAI_BASE_URL"]} if os.getenv("OPENAI_BASE_URL") else {}
         client = OpenAI(**options)
         top_k = max(1, min(20, int(os.getenv("RAG_TOP_K", "4"))))
