@@ -43,6 +43,7 @@ class RagChecks(unittest.TestCase):
             response = main.chat(main.ChatRequest(question='test'))
         self.assertTrue(response.no_answer)
         self.assertEqual(response.sources, [])
+        self.assertEqual(response.answer, 'В базе знаний нет достаточной информации для ответа.')
 
 class KnowledgeUpdates(unittest.TestCase):
     def test_vercel_upload_overrides_bundled_document(self):
