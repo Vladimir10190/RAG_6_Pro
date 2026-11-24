@@ -16,7 +16,7 @@ from openai import OpenAI
 
 ROOT = Path(__file__).resolve().parents[1]
 KB_DIR = ROOT / "БЗ"
-DATA_DIR = ROOT / "data"
+DATA_DIR = Path("/tmp/rag_6_pro/data") if os.getenv("VERCEL") else ROOT / "data"
 INDEX_PATH = DATA_DIR / "index.faiss"
 CHUNKS_PATH = DATA_DIR / "chunks.json"
 MAX_CHARS = 2400

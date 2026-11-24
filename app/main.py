@@ -69,6 +69,8 @@ def knowledge_status():
 
 @app.post("/api/knowledge/documents")
 def upload_document(request: DocumentUpload):
+    if os.getenv("VERCEL"):
+        raise HTTPException(503, "На Vercel загрузка документов недоступна: измените базу в репозитории и выполните повторное развёртывание.")
     name = request.filename
     if (Path(name).name != name or not name.endswith(".md") or name.startswith(".")
         or re.search(r'[<>:"/\\|?*\x00-\x1f]', name) or name.endswith((' ', '.'))
@@ -127,7 +129,19 @@ def chat(request: ChatRequest):
     if not os.getenv("OPENAI_API_KEY"):
         raise HTTPException(503, "Не настроен ключ OpenAI API. Добавьте OPENAI_API_KEY в файл .env.")
     try:
-        retriever = Retriever()
+        try:
+            retriever = Retriever()
+        except FileNotFoundError:
+            if not os.getenv("VERCEL"):
+                raise
+            # Each serverless instance has its own ephemeral /tmp directory.
+            with update_lock:
+                try:
+                    retriever = Retriever()
+                except FileNotFoundError:
+                    options = {"base_url": os.environ["OPENAI_BASE_URL"]} if os.getenv("OPENAI_BASE_URL") else {}
+                    build_index(OpenAI(**options))
+                    retriever = Retriever()
         options = {"base_url": os.environ["OPENAI_BASE_URL"]} if os.getenv("OPENAI_BASE_URL") else {}
         client = OpenAI(**options)
         top_k = max(1, min(20, int(os.getenv("RAG_TOP_K", "4"))))
